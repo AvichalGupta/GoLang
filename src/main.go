@@ -73,7 +73,7 @@ func AddUser(vs *System, id string, name string, gender string, age string, stat
 func AddVC(vs *System, state string, district string, id string) (bool, error) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
-
+  
 	if _, exists := vs.VaccinationCenters[id]; exists {
 		return false, errors.New(`Vaccination Center with ID already exists`)
 	}
@@ -90,6 +90,7 @@ func AddVC(vs *System, state string, district string, id string) (bool, error) {
 }
 
 func AddCapacity(vs *System, centerID string, day string, capacity string) (bool, error) {
+
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -107,15 +108,17 @@ func AddCapacity(vs *System, centerID string, day string, capacity string) (bool
 		return false, errors.New(`Invalid capacity value`)
 	}
 
+
 	if vs.Capacity[centerID] == nil {
 		vs.Capacity[centerID] = make(map[int]int)
 	}
-
+ 
 	vs.Capacity[centerID][dayInt] += capacityInt
 	return true, nil
 }
 
 func BookAppointment(vs *System, centerID string, day string, userID string) (bool, error) {
+
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -163,6 +166,7 @@ func BookAppointment(vs *System, centerID string, day string, userID string) (bo
 }
 
 func CancelAppointment(vs *System, centerID string, day string, userID string) (bool, error) {
+
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -201,6 +205,7 @@ func CancelAppointment(vs *System, centerID string, day string, userID string) (
 }
 
 func ListVaccinationCenters(vs *System, district string) []VaccinationCenter {
+
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -214,8 +219,10 @@ func ListVaccinationCenters(vs *System, district string) []VaccinationCenter {
 }
 
 func ListAllBookingsOnDay(vs *System, day string, centerId string) ([]Appointment, error) {
+
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
+
 
 	_, exists := vs.VaccinationCenters[centerId]
 	if !exists {
