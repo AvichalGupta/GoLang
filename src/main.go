@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type User struct {
@@ -25,9 +26,9 @@ type VaccinationCenter struct {
 }
 
 type Appointment struct {
-	centerID string
-	userID   string
-	day      int
+	CenterID string
+	UserID   string
+	Day      int
 }
 
 type System struct {
@@ -35,9 +36,13 @@ type System struct {
 	VaccinationCenters map[string]VaccinationCenter
 	Capacity           map[string]map[int]int
 	Appointments       map[string][]Appointment
+	mu                 sync.Mutex
 }
 
 func AddUser(vs *System, id string, name string, gender string, age string, state string, district string) (bool, error) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 	if _, exists := vs.Users[id]; exists {
 		return false, errors.New(`User with ID already exists`)
 	}
@@ -66,6 +71,9 @@ func AddUser(vs *System, id string, name string, gender string, age string, stat
 }
 
 func AddVC(vs *System, state string, district string, id string) (bool, error) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+  
 	if _, exists := vs.VaccinationCenters[id]; exists {
 		return false, errors.New(`Vaccination Center with ID already exists`)
 	}
@@ -82,6 +90,10 @@ func AddVC(vs *System, state string, district string, id string) (bool, error) {
 }
 
 func AddCapacity(vs *System, centerID string, day string, capacity string) (bool, error) {
+
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 	if _, exists := vs.VaccinationCenters[centerID]; !exists {
 		return false, errors.New(`Vaccination Center not found`)
 	}
@@ -96,11 +108,20 @@ func AddCapacity(vs *System, centerID string, day string, capacity string) (bool
 		return false, errors.New(`Invalid capacity value`)
 	}
 
+
+	if vs.Capacity[centerID] == nil {
+		vs.Capacity[centerID] = make(map[int]int)
+	}
+ 
 	vs.Capacity[centerID][dayInt] += capacityInt
 	return true, nil
 }
 
 func BookAppointment(vs *System, centerID string, day string, userID string) (bool, error) {
+
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 	if _, exists := vs.VaccinationCenters[centerID]; !exists {
 		return false, errors.New(`Vaccination Center not found`)
 	}
@@ -125,15 +146,15 @@ func BookAppointment(vs *System, centerID string, day string, userID string) (bo
 	}
 
 	for _, booking := range vs.Appointments[centerID] {
-		if booking.userID == userID && booking.day == dayInt {
+		if booking.UserID == userID && booking.Day == dayInt {
 			return false, errors.New(`User already booked an appointment for this day`)
 		}
 	}
 
 	appointment := Appointment{
-		centerID: centerID,
-		userID:   userID,
-		day:      dayInt,
+		CenterID: centerID,
+		UserID:   userID,
+		Day:      dayInt,
 	}
 
 	vs.Appointments[centerID] = append(vs.Appointments[centerID], appointment)
@@ -145,6 +166,10 @@ func BookAppointment(vs *System, centerID string, day string, userID string) (bo
 }
 
 func CancelAppointment(vs *System, centerID string, day string, userID string) (bool, error) {
+
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 	_, exists := vs.VaccinationCenters[centerID]
 	appointmentIndex := -1
 	if !exists {
@@ -163,7 +188,7 @@ func CancelAppointment(vs *System, centerID string, day string, userID string) (
 	appointments := vs.Appointments[centerID]
 
 	for i, appointment := range appointments {
-		if appointment.userID == userID && appointment.day == dayInt {
+		if appointment.UserID == userID && appointment.Day == dayInt {
 			appointmentIndex = i
 		}
 	}
@@ -180,6 +205,10 @@ func CancelAppointment(vs *System, centerID string, day string, userID string) (
 }
 
 func ListVaccinationCenters(vs *System, district string) []VaccinationCenter {
+
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 	result := make([]VaccinationCenter, 0)
 	for _, center := range vs.VaccinationCenters {
 		if center.District == district {
@@ -190,6 +219,10 @@ func ListVaccinationCenters(vs *System, district string) []VaccinationCenter {
 }
 
 func ListAllBookingsOnDay(vs *System, day string, centerId string) ([]Appointment, error) {
+
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 
 	_, exists := vs.VaccinationCenters[centerId]
 	if !exists {
@@ -210,7 +243,7 @@ func ListAllBookingsOnDay(vs *System, day string, centerId string) ([]Appointmen
 	result := make([]Appointment, 0)
 
 	for _, appointment := range appointments {
-		if appointment.day == dayInt {
+		if appointment.Day == dayInt {
 			result = append(result, appointment)
 		}
 	}
@@ -229,23 +262,70 @@ func handleCommands(command []string, vs *System) {
 	}
 	switch command[0] {
 	case "ADD_USER":
-		AddUser(vs, command[1], command[2], command[3], command[4], command[5], command[6])
+		_, err := AddUser(vs, command[1], command[2], command[3], command[4], command[5], command[6])
+
+		if err != nil {
+			fmt.Println(`Error in AddUser: `, err)
+		}
+
+		fmt.Println(`Action Success: `, vs.Users[command[1]])
 	case "ADD_VACCINATION_CENTER":
-		AddVC(vs, command[1], command[2], command[3])
+		_, err := AddVC(vs, command[1], command[2], command[3])
+
+		if err != nil {
+			fmt.Println(`Error in Add Vaccination Center: `, err)
+		}
+
+		fmt.Println(`Action Success: `, vs.VaccinationCenters[command[4]])
+
 	case "ADD_CAPACITY":
-		AddCapacity(vs, command[1], command[2], command[3])
+		_, err := AddCapacity(vs, command[1], command[2], command[3])
+
+		if err != nil {
+			fmt.Println(`Error in Add Capacity: `, err)
+		}
+
+		fmt.Println(`Action Success: `, vs.Capacity[command[1]])
+
 	case "LIST_VACCINATION_CENTERS":
-		ListVaccinationCenters(vs, command[1])
+		data := ListVaccinationCenters(vs, command[1])
+
+		if len(data) == 0 {
+			fmt.Println(`No Vaccination Centers found for district`)
+		}
+
+		fmt.Println(`Action Success: `, data)
+
 	case "CANCEL_BOOKING":
-		CancelAppointment(vs, command[1], command[2], command[3])
+		_, err := CancelAppointment(vs, command[1], command[2], command[3])
+
+		if err != nil {
+			fmt.Println(`Error while Cancelling Booking: `, err)
+		}
+
+		fmt.Println(`Action Success: Booking cancelled`, vs.Appointments[command[1]])
+
 	case "BOOK_VACCINATION":
-		BookAppointment(vs, command[1], command[2], command[3])
+		_, err := BookAppointment(vs, command[1], command[2], command[3])
+
+		if err != nil {
+			fmt.Println(`Error occured while booking: `, err)
+		}
+
+		fmt.Println(`Action Success: Booking Confirmed `, vs.Appointments[command[1]])
+
 	case "LIST_ALL_BOOKINGS":
-		ListAllBookingsOnDay(vs, command[1], command[2])
+		data, err := ListAllBookingsOnDay(vs, command[1], command[2])
+
+		if err != nil {
+			fmt.Println(`Error in fetching bookings for mentioned day: `, err)
+		}
+
+		fmt.Println(`Action Success: `, data)
+
 	default:
 		fmt.Printf("Invalid command")
 	}
-
 }
 
 func main() {
@@ -263,8 +343,7 @@ func main() {
 		fmt.Print("Enter instruction \t")
 		scanner.Scan()
 		command := scanner.Text()
-		actionnDetails := strings.Fields(command)
-		handleCommands(actionnDetails, &vs)
-
+		actionDetails := strings.Fields(command)
+		handleCommands(actionDetails, &vs)
 	}
 }
