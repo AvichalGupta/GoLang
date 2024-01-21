@@ -65,15 +65,13 @@ func AddUser(vs *System, id string, name string, gender string, age string, stat
 		State:    state,
 	}
 
-	fmt.Println("Users Data: ", vs.Users)
-
 	return true, nil
 }
 
 func AddVC(vs *System, state string, district string, id string) (bool, error) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
-  
+
 	if _, exists := vs.VaccinationCenters[id]; exists {
 		return false, errors.New(`Vaccination Center with ID already exists`)
 	}
@@ -83,8 +81,6 @@ func AddVC(vs *System, state string, district string, id string) (bool, error) {
 		State:    state,
 		District: district,
 	}
-
-	fmt.Println("VC Data: ", vs.VaccinationCenters)
 
 	return true, nil
 }
@@ -108,11 +104,10 @@ func AddCapacity(vs *System, centerID string, day string, capacity string) (bool
 		return false, errors.New(`Invalid capacity value`)
 	}
 
-
 	if vs.Capacity[centerID] == nil {
 		vs.Capacity[centerID] = make(map[int]int)
 	}
- 
+
 	vs.Capacity[centerID][dayInt] += capacityInt
 	return true, nil
 }
@@ -218,11 +213,10 @@ func ListVaccinationCenters(vs *System, district string) []VaccinationCenter {
 	return result
 }
 
-func ListAllBookingsOnDay(vs *System, day string, centerId string) ([]Appointment, error) {
+func ListAllBookingsOnDay(vs *System, centerId string, day string) ([]Appointment, error) {
 
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
-
 
 	_, exists := vs.VaccinationCenters[centerId]
 	if !exists {
@@ -266,6 +260,7 @@ func handleCommands(command []string, vs *System) {
 
 		if err != nil {
 			fmt.Println(`Error in AddUser: `, err)
+			return
 		}
 
 		fmt.Println(`Action Success: `, vs.Users[command[1]])
@@ -274,15 +269,17 @@ func handleCommands(command []string, vs *System) {
 
 		if err != nil {
 			fmt.Println(`Error in Add Vaccination Center: `, err)
+			return
 		}
 
-		fmt.Println(`Action Success: `, vs.VaccinationCenters[command[4]])
+		fmt.Println(`Action Success: `, vs.VaccinationCenters[command[3]])
 
 	case "ADD_CAPACITY":
 		_, err := AddCapacity(vs, command[1], command[2], command[3])
 
 		if err != nil {
 			fmt.Println(`Error in Add Capacity: `, err)
+			return
 		}
 
 		fmt.Println(`Action Success: `, vs.Capacity[command[1]])
@@ -292,6 +289,7 @@ func handleCommands(command []string, vs *System) {
 
 		if len(data) == 0 {
 			fmt.Println(`No Vaccination Centers found for district`)
+			return
 		}
 
 		fmt.Println(`Action Success: `, data)
@@ -301,6 +299,7 @@ func handleCommands(command []string, vs *System) {
 
 		if err != nil {
 			fmt.Println(`Error while Cancelling Booking: `, err)
+			return
 		}
 
 		fmt.Println(`Action Success: Booking cancelled`, vs.Appointments[command[1]])
@@ -310,6 +309,7 @@ func handleCommands(command []string, vs *System) {
 
 		if err != nil {
 			fmt.Println(`Error occured while booking: `, err)
+			return
 		}
 
 		fmt.Println(`Action Success: Booking Confirmed `, vs.Appointments[command[1]])
@@ -319,12 +319,14 @@ func handleCommands(command []string, vs *System) {
 
 		if err != nil {
 			fmt.Println(`Error in fetching bookings for mentioned day: `, err)
+			return
 		}
 
 		fmt.Println(`Action Success: `, data)
 
 	default:
 		fmt.Printf("Invalid command")
+		return
 	}
 }
 
